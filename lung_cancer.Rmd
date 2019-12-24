@@ -1,0 +1,197 @@
+---
+title: "lung_cancer"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(DESeq2)
+setwd("D:/cornell/lung cancer")
+library(org.Mm.eg.db)
+d.raw <- read.delim("./deseq2_read_count.txt",sep = ",", row.names = 1)
+
+
+d <- d.raw[rowSums(d.raw>3) > 2,]
+grp <- c(rep("AM_uninfected",4),rep("AM_infected",3),rep("IM_uninfected",2),rep("IM_infected",3))
+cData <- data.frame(Time = factor(grp, levels = c("AM_uninfected", "AM_infected", "IM_uninfected", "IM_infected")))
+rownames(cData) <- colnames(d)
+d.deseq <- DESeqDataSetFromMatrix(countData = d, colData = cData,design = ~Time)
+d.deseq <- DESeq(d.deseq)
+
+data = d.deseq
+
+
+
+contrast = c("Time", "AM_infected", "AM_uninfected")
+res_dds_main=na.omit(as.data.frame(results(data, contrast = contrast, cooksCutoff=FALSE)))
+AM_infected_VS_uninfected = res_dds_main[,c("log2FoldChange", "padj")]
+
+up_AM = AM_infected_VS_uninfected[AM_infected_VS_uninfected$log2FoldChange >= 1 & AM_infected_VS_uninfected$padj <0.05, ]
+down_AM = AM_infected_VS_uninfected[AM_infected_VS_uninfected$log2FoldChange <= -1 & AM_infected_VS_uninfected$padj <0.05, ]
+nrow(up_AM)
+nrow(down_AM)
+
+
+
+contrast = c("Time", "IM_infected", "IM_uninfected")
+res_dds_main=na.omit(as.data.frame(results(data, contrast = contrast, cooksCutoff=FALSE)))
+IM_infected_VS_uninfected = res_dds_main[,c("log2FoldChange", "padj")]
+
+up_IM = IM_infected_VS_uninfected[IM_infected_VS_uninfected$log2FoldChange >= 1 & IM_infected_VS_uninfected$padj <0.01, ]
+down_IM = IM_infected_VS_uninfected[IM_infected_VS_uninfected$log2FoldChange <= -1 & IM_infected_VS_uninfected$padj <0.01, ]
+nrow(up_IM)
+nrow(down_IM)
+
+
+peak_gene_list <- read.delim("./peak_gene.txt",sep = "\t", col.names = c("peak_id", "ensembl_id"))
+ind <- match(rownames(up_AM), peak_gene_list$peak_id)
+up_AM_ensembl = peak_gene_list[ind,"ensembl_id"]
+
+
+ind <- match(rownames(down_AM), peak_gene_list$peak_id)
+down_AM_ensembl = peak_gene_list[ind,"ensembl_id"]
+
+library("clusterProfiler")
+ego <- enrichGO(gene          = up_AM_ensembl,
+                keyType       = "ENSEMBL",
+                OrgDb         = "org.Mm.eg.db",
+                ont           = "ALL",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01
+                )
+write.table(ego@result, "up_AM_pathway.txt", sep="\t", quote=F, row.names=F, col.names = T, na="NA", eol="\n")
+pdf("up_AM.pdf", width=10, height=10)
+dotplot(ego, showCategory=15)
+dev.off()
+
+
+
+
+
+ego <- enrichGO(gene          = down_AM_ensembl,
+                keyType       = "ENSEMBL",
+                OrgDb         = "org.Mm.eg.db",
+                ont           = "ALL",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01
+                )
+write.table(ego@result, "down_AM_pathway.txt", sep="\t", quote=F, row.names=F, col.names = T, na="NA", eol="\n")
+pdf("down_AM.pdf", width=10, height=10)
+dotplot(ego, showCategory=15)
+dev.off()
+
+
+
+contrast = c("Time", "IM_infected", "IM_uninfected")
+res_dds_main=na.omit(as.data.frame(results(data, contrast = contrast, cooksCutoff=FALSE)))
+IM_infected_VS_uninfected = res_dds_main[,c("log2FoldChange", "padj")]
+
+up_IM = IM_infected_VS_uninfected[IM_infected_VS_uninfected$log2FoldChange >= 1 & IM_infected_VS_uninfected$padj <0.05, ]
+down_IM = IM_infected_VS_uninfected[IM_infected_VS_uninfected$log2FoldChange <= -1 & IM_infected_VS_uninfected$padj <0.05, ]
+nrow(up_IM)
+nrow(down_IM)
+
+
+ind <- match(rownames(up_IM), peak_gene_list$peak_id)
+up_IM_ensembl = peak_gene_list[ind,"ensembl_id"]
+
+
+ind <- match(rownames(down_IM), peak_gene_list$peak_id)
+down_IM_ensembl = peak_gene_list[ind,"ensembl_id"]
+
+library("clusterProfiler")
+ego <- enrichGO(gene          = up_IM_ensembl,
+                keyType       = "ENSEMBL",
+                OrgDb         = "org.Mm.eg.db",
+                ont           = "ALL",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01
+                )
+write.table(ego@result, "up_IM_pathway.txt", sep="\t", quote=F, row.names=F, col.names = T, na="NA", eol="\n")
+pdf("up_IM.pdf", width=10, height=10)
+dotplot(ego, showCategory=15)
+dev.off()
+
+ego <- enrichGO(gene          = down_IM_ensembl,
+                keyType       = "ENSEMBL",
+                OrgDb         = "org.Mm.eg.db",
+                ont           = "ALL",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01
+                )
+write.table(ego@result, "down_IM_pathway.txt", sep="\t", quote=F, row.names=F, col.names = T, na="NA", eol="\n")
+pdf("down_IM.pdf", width=10, height=10)
+dotplot(ego, showCategory=15)
+dev.off()
+
+
+
+contrast = c("Time", "AM_infected", "IM_infected")
+res_dds_main=na.omit(as.data.frame(results(data, contrast = contrast, cooksCutoff=FALSE)))
+AM_VS_IM = res_dds_main[,c("log2FoldChange", "padj")]
+
+up_AM_VS_IM = AM_VS_IM[AM_VS_IM$log2FoldChange >= 1 & AM_VS_IM$padj <0.05, ]
+down_AM_VS_IM = AM_VS_IM[AM_VS_IM$log2FoldChange <= -1 & AM_VS_IM$padj <0.05, ]
+nrow(up_AM_VS_IM)
+nrow(down_AM_VS_IM)
+
+
+ind <- match(rownames(up_AM_VS_IM), peak_gene_list$peak_id)
+up_AM_VS_IM_ensembl = peak_gene_list[ind,"ensembl_id"]
+
+
+ind <- match(rownames(down_AM), peak_gene_list$peak_id)
+down_AM_VS_IM_ensembl = peak_gene_list[ind,"ensembl_id"]
+
+library("clusterProfiler")
+ego <- enrichGO(gene          = up_AM_VS_IM_ensembl,
+                keyType       = "ENSEMBL",
+                OrgDb         = "org.Mm.eg.db",
+                ont           = "ALL",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01
+                )
+write.table(ego@result, "up_AMvsIM_pathway.txt", sep="\t", quote=F, row.names=F, col.names = T, na="NA", eol="\n")
+pdf("up_AMvsIM.pdf", width=10, height=10)
+dotplot(ego, showCategory=15)
+dev.off()
+
+ego <- enrichGO(gene          = down_AM_VS_IM_ensembl,
+                keyType       = "ENSEMBL",
+                OrgDb         = "org.Mm.eg.db",
+                ont           = "ALL",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01
+                )
+write.table(ego@result, "down_AMvsIM_pathway.txt", sep="\t", quote=F, row.names=F, col.names = T, na="NA", eol="\n")
+pdf("down_AMvsIM.pdf", width=10, height=10)
+dotplot(ego, showCategory=15)
+dev.off()
+
+
+```
+
+##heatmap
+
+```{r heatmap, echo=FALSE}
+df_data <- read.delim("./deseq2_read_count.txt",sep = ",", row.names = 1)
+peak_vector = c(rownames(up_AM), rownames(down_AM), rownames(up_IM), rownames(down_IM), rownames(up_AM_VS_IM), rownames(down_AM_VS_IM))
+
+data_sub = df_data[peak_vector,]
+library(pheatmap)
+annotation_row=data.frame(class=factor(c(rep("AM up", nrow(up_AM)), rep("AM down", nrow(down_AM)), rep("IM up", nrow(up_IM)), rep("IM down", nrow(down_IM)), rep("AMvsIM up", nrow(up_AM_VS_IM)), rep("AMvsIM down", nrow(down_AM_VS_IM)) ), levels = c("AM up", "AM down", "IM up", "IM down", "AMvsIM up", "AMvsIM down")), row.names = rownames(data_sub))
+annotation_col= data.frame(Group = factor(c(rep("AM uninfected", 4), rep("AM infected", 3), rep("IM uninfected", 2), rep("IM infected", 3)), levels = c("AM uninfected", "AM infected", "IM uninfected", "IM infected")))
+row.names(annotation_col) <- colnames(data_sub)
+pdf("DEG_heatmap.pdf", height = 10, width = 10)
+pheatmap(data_sub, cluster_rows = F, show_rownames = F, cluster_cols = F, scale = "row",annotation_row = annotation_row, annotation_col = annotation_col, color =colorRampPalette(c("#87CEFA", "white", "#CC2121"))(100))
+dev.off()
+```
